@@ -17,6 +17,15 @@ const API = {
   update: `${window.GAS_CONFIG?.BASE_URL || ''}?action=update`
 };
 
+const CHECKPOINTS = [
+  { name: '日月光K11', lat: 22.722175781517592, lng: 120.30469452841636 },
+  { name: '新興分隊', lat: 22.63061642963968, lng: 120.31139119733957 },
+  { name: '吉林街', lat: 22.644404289374926, lng: 120.306559031746 }
+];
+
+const MAX_DISTANCE_METER = 250;
+
+
 /* =========================
  * 初始化
  * ========================= */
@@ -124,14 +133,25 @@ async function detectGPS() {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const nearest = findNearestCheckpoint(lat, lng);
+        const within = nearest && nearest.distance <= MAX_DISTANCE_METER;
+
         AppState.gps = {
-          ok: true,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          message: `定位成功 (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`
+          ok: !!within,
+          lat,
+          lng,
+          message: within
+            ? `定位成功：${nearest.name}（距離 ${nearest.distance.toFixed(0)} 公尺）`
+            : `定位失敗：未在指定範圍內（最近 ${nearest.name} ${nearest.distance.toFixed(0)} 公尺）`
         };
         renderGPS();
-        showStatus('success', 'GPS 驗證成功，可進行簽到簽退。');
+        if (within) {
+          showStatus('success', 'GPS 驗證成功，可進行簽到簽退。');
+        } else {
+          showStatus('warning', `GPS 驗證未通過，請於指定地點附近 ${MAX_DISTANCE_METER} 公尺內操作。`);
+        }
         resolve();
       },
       (err) => {
@@ -361,6 +381,29 @@ function formatTime(date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
 }
 
+
+
+function findNearestCheckpoint(lat, lng) {
+  let nearest = null;
+  CHECKPOINTS.forEach((point) => {
+    const distance = calcDistanceMeter(lat, lng, point.lat, point.lng);
+    if (!nearest || distance < nearest.distance) nearest = { ...point, distance };
+  });
+  return nearest;
+}
+
+function calcDistanceMeter(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (v) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 function showStatus(type, message) {
   const html = `<div class="alert alert-${type} mb-0" role="alert">${escapeHtml(message)}</div>`;
   $('#statusArea').removeClass('d-none').html(html);
