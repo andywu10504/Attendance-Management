@@ -1,283 +1,249 @@
 /* =========================
- * 全域狀態
+ * 全域設定與狀態
  * ========================= */
-const appState = {
-  userId: 'U001',
-  profile: null,
+const AppState = {
+  currentUserId: 'A001',
+  user: null,
   records: [],
-  hasUncheckedRecord: false,
-  gps: null,
+  gps: { ok: false, lat: null, lng: null, message: '尚未定位' },
+  hasOpenRecord: false
+};
+
+/* =========================
+ * API 設定
+ * ========================= */
+const API = {
+  read: `${window.GAS_CONFIG?.BASE_URL || ''}?action=read`,
+  create: `${window.GAS_CONFIG?.BASE_URL || ''}?action=create`,
+  update: `${window.GAS_CONFIG?.BASE_URL || ''}?action=update`
 };
 
 /* =========================
  * 初始化
  * ========================= */
-$(function () {
+$(async function init() {
   bindEvents();
   startClock();
-  loadDashboard();
+  await detectGPS();
+  await loadData();
 });
 
 /* =========================
  * 事件綁定
  * ========================= */
 function bindEvents() {
-  $('#switchUserBtn').on('click', () => {
-    const newId = prompt('請輸入人員 ID', appState.userId);
-    if (newId) {
-      appState.userId = newId.trim();
-      loadDashboard();
-    }
+  $('#switchUserBtn').on('click', onSwitchUser);
+  $('#checkGpsBtn').on('click', detectGPS);
+
+  $('#checkInBtn').on('click', () => {
+    if (!canCheckIn()) return;
+    new bootstrap.Modal('#checkInModal').show();
   });
 
-  $('#checkInModal').on('show.bs.modal', async function () {
-    const gpsResult = await getCurrentGps();
-    renderGpsStatus('#checkInGpsStatus', gpsResult);
+  $('#checkOutBtn').on('click', () => {
+    if (!canCheckOut()) return;
+    new bootstrap.Modal('#checkOutModal').show();
   });
 
-  $('#checkOutModal').on('show.bs.modal', async function () {
-    const gpsResult = await getCurrentGps();
-    renderGpsStatus('#checkOutGpsStatus', gpsResult);
-  });
-
-  $('#confirmCheckInBtn').on('click', async () => {
-    if (appState.hasUncheckedRecord) {
-      showStatus('已簽到尚未簽退，請勿重複簽到。', 'warning');
-      return;
-    }
-
-    if (!appState.gps || !appState.gps.ok) {
-      showStatus('GPS 驗證失敗，無法簽到。', 'danger');
-      return;
-    }
-
-    const payload = {
-      id: appState.userId,
-      latitude: appState.gps.latitude,
-      longitude: appState.gps.longitude,
-    };
-
-    try {
-      await gasCall('createCheckIn', payload);
-      showStatus('簽到成功。', 'success');
-      bootstrap.Modal.getInstance(document.getElementById('checkInModal')).hide();
-      await loadDashboard();
-    } catch (err) {
-      showStatus(`簽到失敗：${err.message}`, 'danger');
-    }
-  });
-
-  $('#confirmCheckOutBtn').on('click', async () => {
-    if (!appState.hasUncheckedRecord) {
-      showStatus('目前沒有可簽退的簽到紀錄。', 'warning');
-      return;
-    }
-
-    if (!appState.gps || !appState.gps.ok) {
-      showStatus('GPS 驗證失敗，無法簽退。', 'danger');
-      return;
-    }
-
-    const payload = {
-      id: appState.userId,
-      latitude: appState.gps.latitude,
-      longitude: appState.gps.longitude,
-      workNote: '一般勤務',
-      signatureFileId: '',
-    };
-
-    try {
-      await gasCall('updateCheckOut', payload);
-      showStatus('簽退成功。', 'success');
-      bootstrap.Modal.getInstance(document.getElementById('checkOutModal')).hide();
-      await loadDashboard();
-    } catch (err) {
-      showStatus(`簽退失敗：${err.message}`, 'danger');
-    }
-  });
+  $('#confirmCheckInBtn').on('click', submitCheckIn);
+  $('#confirmCheckOutBtn').on('click', submitCheckOut);
 }
 
 /* =========================
- * 主畫面資料讀取
- * ========================= */
-async function loadDashboard() {
-  try {
-    const data = await gasCall('getDashboardData', { id: appState.userId });
-    appState.profile = data.profile;
-    appState.records = data.records || [];
-    appState.hasUncheckedRecord = appState.records.some((r) => !r.checkOutTime);
-
-    renderProfile();
-    renderHours(data.monthHours || 0, data.totalHours || 0);
-    renderRecords(appState.records);
-    updateButtonState();
-  } catch (err) {
-    showStatus(`載入資料失敗：${err.message}`, 'danger');
-  }
-}
-
-/* =========================
- * 視圖渲染
- * ========================= */
-function renderProfile() {
-  $('#unitText').text(appState.profile?.unit || '單位');
-  $('#titleText').text(appState.profile?.title || '職稱');
-  $('#nameText').text(appState.profile?.name || '姓名');
-}
-
-function renderHours(monthHours, totalHours) {
-  $('#monthHours').text(Number(monthHours).toFixed(2));
-  $('#totalHours').text(Number(totalHours).toFixed(2));
-}
-
-function renderRecords(records) {
-  const $body = $('#recordsTableBody');
-  $body.empty();
-
-  if (!records.length) {
-    $body.append('<tr><td colspan="5" class="text-center text-muted">尚無資料</td></tr>');
-    return;
-  }
-
-  records.forEach((row) => {
-    $body.append(`
-      <tr>
-        <td>${escapeHtml(row.dutyType || '協勤')}</td>
-        <td>${escapeHtml(row.checkInDate || '')}</td>
-        <td>${escapeHtml(row.checkInTime || '')}</td>
-        <td>${escapeHtml(row.checkOutDate || '')}</td>
-        <td>${escapeHtml(row.checkOutTime || '')}</td>
-      </tr>
-    `);
-  });
-}
-
-function updateButtonState() {
-  $('#checkInBtn').prop('disabled', appState.hasUncheckedRecord);
-  $('#checkOutBtn').prop('disabled', !appState.hasUncheckedRecord);
-}
-
-function showStatus(message, type) {
-  $('#statusSection').removeClass('d-none');
-  $('#statusAlert')
-    .removeClass('alert-success alert-danger alert-warning alert-info')
-    .addClass(`alert-${type || 'info'}`)
-    .text(message);
-}
-
-/* =========================
- * 時鐘
+ * 時鐘顯示
  * ========================= */
 function startClock() {
-  const tick = () => {
+  const update = () => {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     const ss = String(now.getSeconds()).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    const mon = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-
     $('#clockTime').text(`${hh}:${mm}:${ss}`);
-    $('#clockDate').text(`${yyyy}-${mon}-${dd}`);
+    $('#clockDate').text(now.toISOString().slice(0, 10));
   };
-
-  tick();
-  setInterval(tick, 1000);
+  update();
+  setInterval(update, 1000);
 }
 
 /* =========================
- * GPS
+ * GPS 定位（僅前端驗證）
  * ========================= */
-async function getCurrentGps() {
+async function detectGPS() {
   if (!navigator.geolocation) {
-    appState.gps = { ok: false, message: '瀏覽器不支援 GPS。' };
-    return appState.gps;
+    AppState.gps = { ok: false, lat: null, lng: null, message: '瀏覽器不支援定位' };
+    renderGPS();
+    return;
   }
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        appState.gps = {
+      (pos) => {
+        AppState.gps = {
           ok: true,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          message: 'GPS 驗證成功。',
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          message: `定位成功 (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`
         };
-        resolve(appState.gps);
+        renderGPS();
+        showStatus('success', 'GPS 驗證成功，可進行簽到簽退。');
+        resolve();
       },
-      (error) => {
-        appState.gps = { ok: false, message: `GPS 失敗：${error.message}` };
-        resolve(appState.gps);
+      (err) => {
+        AppState.gps = { ok: false, lat: null, lng: null, message: `定位失敗：${err.message}` };
+        renderGPS();
+        showStatus('danger', 'GPS 驗證失敗，請開啟定位權限後重試。');
+        resolve();
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   });
 }
 
-function renderGpsStatus(selector, gpsResult) {
-  const cls = gpsResult.ok ? 'text-success' : 'text-danger';
-  $(selector).removeClass('text-success text-danger').addClass(cls).text(gpsResult.message);
+function renderGPS() {
+  $('#gpsStatus').text(AppState.gps.message)
+    .toggleClass('text-success', AppState.gps.ok)
+    .toggleClass('text-danger', !AppState.gps.ok);
 }
 
 /* =========================
- * GAS 呼叫封裝
+ * 載入資料
  * ========================= */
-function gasCall(method, payload) {
-  return new Promise((resolve, reject) => {
-    // Apps Script 環境
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler((err) => reject(new Error(err.message || err)))
-        [method](payload);
-      return;
-    }
+async function loadData() {
+  try {
+    const res = await $.getJSON(API.read, { userId: AppState.currentUserId });
+    if (!res.success) throw new Error(res.message || '讀取失敗');
 
-    // 本地測試假資料
-    const mock = mockApi(method, payload);
-    resolve(mock);
-  });
-}
+    AppState.user = res.user;
+    AppState.records = res.records || [];
+    AppState.hasOpenRecord = AppState.records.some((r) => r.checkInTime && !r.checkOutTime);
 
-/* =========================
- * 本地假資料
- * ========================= */
-function mockApi(method) {
-  const mockRecords = [
-    {
-      dutyType: '協勤',
-      checkInDate: '2026-04-22',
-      checkInTime: '08:10:00',
-      checkOutDate: '2026-04-22',
-      checkOutTime: '17:40:00',
-    },
-  ];
-
-  switch (method) {
-    case 'getDashboardData':
-      return {
-        profile: { unit: '行政組', title: '隊員', name: '王小明' },
-        monthHours: 45.5,
-        totalHours: 356.5,
-        records: mockRecords,
-      };
-    case 'createCheckIn':
-    case 'updateCheckOut':
-      return { ok: true };
-    default:
-      throw new Error(`未知方法：${method}`);
+    renderUser();
+    renderSummary(res.summary || { monthHours: 0, totalHours: 0 });
+    renderRecords();
+    updateActionButtons();
+  } catch (error) {
+    showStatus('danger', `讀取資料失敗：${error.message}`);
   }
 }
 
+function renderUser() {
+  $('#unitText').text(AppState.user?.unit || '-');
+  $('#titleText').text(AppState.user?.title || '-');
+  $('#nameText').text(AppState.user?.name || '-');
+}
+
+function renderSummary(summary) {
+  $('#monthHours').text(Number(summary.monthHours || 0).toFixed(2));
+  $('#totalHours').text(Number(summary.totalHours || 0).toFixed(2));
+}
+
+function renderRecords() {
+  const rows = AppState.records.map((r) => {
+    const hours = Number(r.hours || 0).toFixed(2);
+    return `
+      <tr>
+        <td>${escapeHtml(r.workType || '一般勤務')}</td>
+        <td>${escapeHtml(r.checkInDate || '')}</td>
+        <td>${escapeHtml(r.checkInTime || '')}</td>
+        <td>${escapeHtml(r.checkOutDate || '')}</td>
+        <td>${escapeHtml(r.checkOutTime || '')}</td>
+        <td>${hours}</td>
+      </tr>
+    `;
+  }).join('');
+
+  $('#recordTableBody').html(rows || '<tr><td colspan="6" class="text-center text-muted">目前沒有資料</td></tr>');
+}
+
 /* =========================
- * 工具
+ * 按鈕與流程控制
  * ========================= */
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+function canCheckIn() {
+  if (!AppState.gps.ok) return showStatus('warning', '尚未完成 GPS 驗證，無法簽到。'), false;
+  if (AppState.hasOpenRecord) return showStatus('warning', '您目前已有未簽退紀錄，不能重複簽到。'), false;
+  return true;
+}
+
+function canCheckOut() {
+  if (!AppState.gps.ok) return showStatus('warning', '尚未完成 GPS 驗證，無法簽退。'), false;
+  if (!AppState.hasOpenRecord) return showStatus('warning', '目前沒有未簽退紀錄。'), false;
+  return true;
+}
+
+function updateActionButtons() {
+  $('#checkInBtn').prop('disabled', AppState.hasOpenRecord);
+  $('#checkOutBtn').prop('disabled', !AppState.hasOpenRecord);
+}
+
+async function submitCheckIn() {
+  try {
+    const payload = {
+      userId: AppState.currentUserId,
+      workContent: $('#checkInWorkContent').val().trim(),
+      signUrl: $('#checkInSignUrl').val().trim(),
+      gpsLat: AppState.gps.lat,
+      gpsLng: AppState.gps.lng
+    };
+
+    const res = await $.ajax({
+      url: API.create,
+      method: 'POST',
+      data: JSON.stringify(payload),
+      contentType: 'application/json'
+    });
+
+    if (!res.success) throw new Error(res.message || '簽到失敗');
+    bootstrap.Modal.getInstance(document.getElementById('checkInModal')).hide();
+    showStatus('success', '簽到成功。');
+    await loadData();
+  } catch (error) {
+    showStatus('danger', `簽到失敗：${error.message}`);
+  }
+}
+
+async function submitCheckOut() {
+  try {
+    const payload = {
+      userId: AppState.currentUserId,
+      gpsLat: AppState.gps.lat,
+      gpsLng: AppState.gps.lng
+    };
+
+    const res = await $.ajax({
+      url: API.update,
+      method: 'POST',
+      data: JSON.stringify(payload),
+      contentType: 'application/json'
+    });
+
+    if (!res.success) throw new Error(res.message || '簽退失敗');
+    bootstrap.Modal.getInstance(document.getElementById('checkOutModal')).hide();
+    showStatus('success', '簽退成功。');
+    await loadData();
+  } catch (error) {
+    showStatus('danger', `簽退失敗：${error.message}`);
+  }
+}
+
+function onSwitchUser() {
+  AppState.currentUserId = AppState.currentUserId === 'A001' ? 'A002' : 'A001';
+  showStatus('info', `已切換人員：${AppState.currentUserId}`);
+  loadData();
+}
+
+/* =========================
+ * UI 工具
+ * ========================= */
+function showStatus(type, message) {
+  const html = `<div class="alert alert-${type} mb-0" role="alert">${escapeHtml(message)}</div>`;
+  $('#statusArea').removeClass('d-none').html(html);
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
