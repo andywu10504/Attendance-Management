@@ -61,41 +61,30 @@
           <section id="statusArea" class="section-box p-3 d-none"></section>
         </div>
 
-        <div class="col-12">
-          <section class="section-box p-3 d-grid gap-2">
-            <button id="checkInBtn" class="btn btn-success action-btn">
-              <i class="fa-solid fa-right-to-bracket me-2"></i>簽到
-            </button>
-            <button id="checkOutBtn" class="btn btn-danger action-btn">
-              <i class="fa-solid fa-right-from-bracket me-2"></i>簽退
-            </button>
+        <div class="col-md-4">
+          <section class="section-box p-3 h-100 d-grid gap-2">
+            <button id="checkInBtn" class="btn btn-success action-btn"><i class="fa-solid fa-right-to-bracket me-2"></i>簽到</button>
+            <button id="checkOutBtn" class="btn btn-danger action-btn"><i class="fa-solid fa-right-from-bracket me-2"></i>簽退</button>
           </section>
         </div>
-        
-        <div class="col-12">
-          <section class="section-box p-3">
+
+        <div class="col-md-8">
+          <section class="section-box p-3 h-100">
             <div class="row g-3">
-              <div class="col-md-6">
+              <div class="col-6">
                 <div class="border rounded p-3 h-100">
-                  <div class="text-muted">本月協勤時數</div>
-                  <div class="fs-3 fw-bold">
-                    <span id="monthHours">0.00</span>
-                    <small class="fs-6 text-muted">小時</small>
-                  </div>
+                  <div class="text-muted"><i class="fa-solid fa-hourglass-half me-1"></i>本月協勤時數</div>
+                  <div class="fs-3 fw-bold" id="monthHours">0.00</div>
                   <div class="progress mt-2" role="progressbar" aria-label="本月目標 12 小時" aria-valuemin="0" aria-valuemax="12">
                     <div id="monthProgress" class="progress-bar" style="width: 0%">0%</div>
                   </div>
                   <small class="text-muted">每月目標 12 小時</small>
                 </div>
               </div>
-        
-              <div class="col-md-6">
+              <div class="col-6">
                 <div class="border rounded p-3 h-100">
-                  <div class="text-muted">總協勤時數</div>
-                  <div class="fs-3 fw-bold">
-                    <span id="totalHours">0.00</span>
-                    <small class="fs-6 text-muted">小時</small>
-                  </div>
+                  <div class="text-muted"><i class="fa-solid fa-clock-rotate-left me-1"></i>總協勤時數</div>
+                  <div class="fs-3 fw-bold" id="totalHours">0.00</div>
                 </div>
               </div>
             </div>
@@ -105,7 +94,7 @@
         <div class="col-12">
           <section class="section-box p-3">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <h5 class="mb-0 fw-bold">出勤紀錄</h5>
+              <h5 class="mb-0 fw-bold"><i class="fa-solid fa-table-list me-1"></i>出勤紀錄</h5>
               <input id="recordMonth" type="month" class="form-control form-control-sm" style="max-width: 180px;">
             </div>
             <div class="table-wrap">
@@ -113,9 +102,9 @@
                 <thead class="table-light">
                   <tr>
                     <th>勤務類別</th>
-                    <th>簽到日期</th>
+                    <th><i class="fa-solid fa-calendar-day me-1"></i>簽到日期</th>
                     <th>簽到時間</th>
-                    <th>簽退日期</th>
+                    <th><i class="fa-solid fa-calendar-day me-1"></i>簽退日期</th>
                     <th>簽退時間</th>
                     <th>時數(小時)</th>
                   </tr>
@@ -132,11 +121,11 @@
   <div class="modal fade" id="switchUserModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">切換人員</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-users-gear me-2"></i>切換人員</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-          <div class="mb-2"><label class="form-label">單位</label><input id="switchUnit" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label">職稱</label><input id="switchTitle" class="form-control" readonly></div>
-          <div><label class="form-label">姓名</label><select id="switchName" class="form-select"></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-building me-1 text-secondary"></i>單位</label><input id="switchUnit" class="form-control" readonly></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="switchTitle" class="form-control" readonly></div>
+          <div><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="switchName" class="form-select"></select></div>
         </div>
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmSwitchBtn" class="btn btn-primary">確認切換</button></div>
       </div>
@@ -146,13 +135,13 @@
   <div class="modal fade" id="checkInModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">簽到</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-right-to-bracket me-2 text-success"></i>簽到</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-          <div class="mb-2"><label class="form-label">協勤種類</label><select id="inDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
-          <div class="mb-2"><label class="form-label">職稱</label><input id="inTitle" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label">姓名</label><select id="inName" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label">簽到日期</label><input id="inDate" type="date" class="form-control"></div>
-          <div><label class="form-label">簽到時間(半小時)</label><select id="inTime" class="form-select"></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-list-check me-1"></i>協勤種類</label><select id="inDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="inTitle" class="form-control" readonly></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="inName" class="form-select"></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-calendar-day me-1"></i>簽到日期</label><input id="inDate" type="date" class="form-control"></div>
+          <div><label class="form-label"><i class="fa-regular fa-clock me-1"></i>簽到時間(半小時)</label><select id="inTime" class="form-select"></select></div>
         </div>
         <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmCheckInBtn" type="button" class="btn btn-success">確認簽到</button></div>
       </div>
@@ -162,16 +151,16 @@
   <div class="modal fade" id="checkOutModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">簽退</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-right-from-bracket me-2 text-danger"></i>簽退</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-          <div class="mb-2"><label class="form-label">協勤種類</label><select id="outDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
-          <div class="mb-2"><label class="form-label">服勤類別</label><select id="outServiceType" class="form-select"><option>待命協勤</option><option>出勤</option></select></div>
-          <div class="mb-2"><label class="form-label">職稱</label><input id="outTitle" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label">姓名</label><select id="outName" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label">簽退日期</label><input id="outDate" type="date" class="form-control"></div>
-          <div class="mb-2"><label class="form-label">簽退時間(半小時)</label><select id="outTime" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label">工作內容(出勤與公差勤務需填寫)</label><textarea id="outWorkContent" class="form-control" rows="2"></textarea></div>
-          <div><label class="form-label">簽名(Drive URL)</label><input id="outSignUrl" type="url" class="form-control"></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-list-check me-1"></i>協勤種類</label><select id="outDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-briefcase me-1"></i>服勤類別</label><select id="outServiceType" class="form-select"><option>待命協勤</option><option>出勤</option></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="outTitle" class="form-control" readonly></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="outName" class="form-select"></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-calendar-day me-1"></i>簽退日期</label><input id="outDate" type="date" class="form-control"></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-regular fa-clock me-1"></i>簽退時間(半小時)</label><select id="outTime" class="form-select"></select></div>
+          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-pen-to-square me-1"></i>工作內容(出勤與公差勤務需填寫)</label><textarea id="outWorkContent" class="form-control" rows="2"></textarea></div>
+          <div><label class="form-label"><i class="fa-solid fa-signature me-1"></i>簽名(Drive URL)</label><input id="outSignUrl" type="url" class="form-control"></div>
         </div>
         <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmCheckOutBtn" type="button" class="btn btn-danger">確認簽退</button></div>
       </div>
