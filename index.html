@@ -29,19 +29,14 @@
   </div>
 
   <div class="container-fluid p-0">
-    <nav class="navbar navbar-expand-lg bg-body-tertiary section-box rounded-0 border-start-0 border-end-0 border-top-0">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#"><i class="fa-solid fa-calendar-check me-2"></i>新興救護義消出勤管理系統</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item me-3"><span class="nav-link"><i class="fa-solid fa-building me-1"></i><span id="unitText">-</span></span></li>
-            <li class="nav-item me-3"><span class="nav-link"><i class="fa-solid fa-user-tie me-1"></i><span id="titleText">-</span></span></li>
-            <li class="nav-item me-3"><span class="nav-link"><i class="fa-solid fa-user me-1"></i><span id="nameText">-</span></span></li>
-          </ul>
-          <button id="switchUserBtn" class="btn btn-outline-primary"><i class="fa-solid fa-repeat me-1"></i>切換</button>
+    <nav class="navbar bg-body-tertiary section-box rounded-0 border-start-0 border-end-0 border-top-0">
+      <div class="container-fluid d-flex justify-content-between align-items-center">
+        <div class="navbar-brand mb-0 fw-bold">新興救護義消出勤管理系統</div>
+        <div class="d-flex align-items-center gap-3">
+          <span><i class="fa-solid fa-building me-1"></i><span id="unitText">-</span></span>
+          <span><i class="fa-solid fa-user-tie me-1"></i><span id="titleText">-</span></span>
+          <span><i class="fa-solid fa-user me-1"></i><span id="nameText">-</span></span>
+          <button id="switchUserBtn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-repeat me-1"></i>切換</button>
         </div>
       </div>
     </nav>
@@ -99,11 +94,8 @@
         <div class="col-12">
           <section class="section-box p-3">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <h5 class="mb-0">出勤紀錄</h5>
-              <div class="d-flex gap-2">
-                <input id="recordMonth" type="month" class="form-control form-control-sm">
-                <a href="export.html" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-file-export me-1"></i>匯出</a>
-              </div>
+              <h5 class="mb-0 fw-bold">出勤紀錄</h5>
+              <input id="recordMonth" type="month" class="form-control form-control-sm" style="max-width: 180px;">
             </div>
             <div class="table-wrap">
               <table class="table table-striped table-bordered align-middle mb-0">
