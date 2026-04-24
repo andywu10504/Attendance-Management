@@ -1,17 +1,16 @@
 /* =========================
- * 全域設定與狀態
+ * 全域狀態
  * ========================= */
 const AppState = {
-  currentUserId: 'A001',
+  currentUserId: '',
   user: null,
+  users: [],
   records: [],
+  selectedMonth: '',
   gps: { ok: false, lat: null, lng: null, message: '尚未定位' },
   hasOpenRecord: false
 };
 
-/* =========================
- * API 設定
- * ========================= */
 const API = {
   read: `${window.GAS_CONFIG?.BASE_URL || ''}?action=read`,
   create: `${window.GAS_CONFIG?.BASE_URL || ''}?action=create`,
@@ -22,6 +21,11 @@ const API = {
  * 初始化
  * ========================= */
 $(async function init() {
+  AppState.selectedMonth = getCurrentMonth();
+  $('#recordMonth').val(AppState.selectedMonth);
+
+  buildHalfHourOptions('#inTime');
+  buildHalfHourOptions('#outTime');
   bindEvents();
   startClock();
   await detectGPS();
@@ -29,36 +33,45 @@ $(async function init() {
 });
 
 /* =========================
- * 事件綁定
+ * 事件
  * ========================= */
 function bindEvents() {
-  $('#switchUserBtn').on('click', onSwitchUser);
+  $('#switchUserBtn').on('click', openSwitchModal);
+  $('#confirmSwitchBtn').on('click', confirmSwitchUser);
+  $('#switchName').on('change', () => syncUserFields($('#switchName').val(), '#switchUnit', '#switchTitle'));
+
   $('#checkGpsBtn').on('click', detectGPS);
+  $('#recordMonth').on('change', async () => {
+    AppState.selectedMonth = $('#recordMonth').val();
+    await loadData();
+  });
 
   $('#checkInBtn').on('click', () => {
     if (!canCheckIn()) return;
+    fillCheckInModal();
     new bootstrap.Modal('#checkInModal').show();
   });
 
   $('#checkOutBtn').on('click', () => {
     if (!canCheckOut()) return;
+    fillCheckOutModal();
     new bootstrap.Modal('#checkOutModal').show();
   });
+
+  $('#inName').on('change', () => syncUserFields($('#inName').val(), null, '#inTitle'));
+  $('#outName').on('change', () => syncUserFields($('#outName').val(), null, '#outTitle'));
 
   $('#confirmCheckInBtn').on('click', submitCheckIn);
   $('#confirmCheckOutBtn').on('click', submitCheckOut);
 }
 
 /* =========================
- * 時鐘顯示
+ * 時鐘
  * ========================= */
 function startClock() {
   const update = () => {
     const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    $('#clockTime').text(`${hh}:${mm}:${ss}`);
+    $('#clockTime').text(formatTime(now));
     $('#clockDate').text(now.toISOString().slice(0, 10));
   };
   update();
@@ -66,15 +79,48 @@ function startClock() {
 }
 
 /* =========================
- * GPS 定位（僅前端驗證）
+ * 讀取資料
+ * ========================= */
+async function loadData() {
+  showLoading(true);
+  try {
+    const res = await $.getJSON(API.read, {
+      userId: AppState.currentUserId,
+      month: AppState.selectedMonth
+    });
+    if (!res.success) throw new Error(res.message || '讀取失敗');
+
+    AppState.users = res.users || [];
+
+    if (!AppState.currentUserId) {
+      AppState.currentUserId = AppState.users[0]?.id || '';
+      if (!AppState.currentUserId) throw new Error('人員資料為空');
+      return await loadData();
+    }
+
+    AppState.user = res.user;
+    AppState.records = res.records || [];
+    AppState.hasOpenRecord = !!res.hasOpenRecord;
+
+    renderUser();
+    renderSummary(res.summary || { monthHours: 0, totalHours: 0 });
+    renderRecords();
+    updateActionButtons();
+  } catch (error) {
+    showStatus('danger', `讀取資料失敗：${error.message}`);
+  } finally {
+    showLoading(false);
+  }
+}
+
+/* =========================
+ * GPS
  * ========================= */
 async function detectGPS() {
   if (!navigator.geolocation) {
     AppState.gps = { ok: false, lat: null, lng: null, message: '瀏覽器不支援定位' };
-    renderGPS();
-    return;
+    return renderGPS();
   }
-
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -99,33 +145,9 @@ async function detectGPS() {
   });
 }
 
-function renderGPS() {
-  $('#gpsStatus').text(AppState.gps.message)
-    .toggleClass('text-success', AppState.gps.ok)
-    .toggleClass('text-danger', !AppState.gps.ok);
-}
-
 /* =========================
- * 載入資料
+ * 畫面更新
  * ========================= */
-async function loadData() {
-  try {
-    const res = await $.getJSON(API.read, { userId: AppState.currentUserId });
-    if (!res.success) throw new Error(res.message || '讀取失敗');
-
-    AppState.user = res.user;
-    AppState.records = res.records || [];
-    AppState.hasOpenRecord = AppState.records.some((r) => r.checkInTime && !r.checkOutTime);
-
-    renderUser();
-    renderSummary(res.summary || { monthHours: 0, totalHours: 0 });
-    renderRecords();
-    updateActionButtons();
-  } catch (error) {
-    showStatus('danger', `讀取資料失敗：${error.message}`);
-  }
-}
-
 function renderUser() {
   $('#unitText').text(AppState.user?.unit || '-');
   $('#titleText').text(AppState.user?.title || '-');
@@ -133,30 +155,43 @@ function renderUser() {
 }
 
 function renderSummary(summary) {
-  $('#monthHours').text(Number(summary.monthHours || 0).toFixed(2));
-  $('#totalHours').text(Number(summary.totalHours || 0).toFixed(2));
+  const monthHours = Number(summary.monthHours || 0);
+  const totalHours = Number(summary.totalHours || 0);
+
+  $('#monthHours').text(monthHours.toFixed(2));
+  $('#totalHours').text(totalHours.toFixed(2));
+
+  const percentage = Math.min(100, (monthHours / 12) * 100);
+  $('#monthProgress').css('width', `${percentage.toFixed(0)}%`).text(`${percentage.toFixed(0)}%`);
 }
 
 function renderRecords() {
-  const rows = AppState.records.map((r) => {
-    const hours = Number(r.hours || 0).toFixed(2);
-    return `
-      <tr>
-        <td>${escapeHtml(r.workType || '一般勤務')}</td>
-        <td>${escapeHtml(r.checkInDate || '')}</td>
-        <td>${escapeHtml(r.checkInTime || '')}</td>
-        <td>${escapeHtml(r.checkOutDate || '')}</td>
-        <td>${escapeHtml(r.checkOutTime || '')}</td>
-        <td>${hours}</td>
-      </tr>
-    `;
-  }).join('');
+  const rows = AppState.records.map((r) => `
+    <tr>
+      <td>${escapeHtml(r.workType || '')}</td>
+      <td>${escapeHtml(r.checkInDate || '')}</td>
+      <td>${escapeHtml(r.checkInTime || '')}</td>
+      <td>${escapeHtml(r.checkOutDate || '')}</td>
+      <td>${escapeHtml(r.checkOutTime || '')}</td>
+      <td>${Number(r.hours || 0).toFixed(2)}</td>
+    </tr>
+  `).join('');
 
   $('#recordTableBody').html(rows || '<tr><td colspan="6" class="text-center text-muted">目前沒有資料</td></tr>');
 }
 
+function renderGPS() {
+  $('#gpsStatus').text(AppState.gps.message)
+    .toggleClass('text-success', AppState.gps.ok)
+    .toggleClass('text-danger', !AppState.gps.ok);
+}
+
+function showLoading(show) {
+  $('#loadingMask').css('display', show ? 'flex' : 'none');
+}
+
 /* =========================
- * 按鈕與流程控制
+ * 流程判斷
  * ========================= */
 function canCheckIn() {
   if (!AppState.gps.ok) return showStatus('warning', '尚未完成 GPS 驗證，無法簽到。'), false;
@@ -175,12 +210,40 @@ function updateActionButtons() {
   $('#checkOutBtn').prop('disabled', !AppState.hasOpenRecord);
 }
 
+/* =========================
+ * 切換人員
+ * ========================= */
+function openSwitchModal() {
+  populateUserOptions('#switchName', AppState.currentUserId);
+  syncUserFields(AppState.currentUserId, '#switchUnit', '#switchTitle');
+  new bootstrap.Modal('#switchUserModal').show();
+}
+
+async function confirmSwitchUser() {
+  AppState.currentUserId = $('#switchName').val();
+  bootstrap.Modal.getInstance(document.getElementById('switchUserModal')).hide();
+  await loadData();
+}
+
+/* =========================
+ * 簽到
+ * ========================= */
+function fillCheckInModal() {
+  populateUserOptions('#inName', AppState.currentUserId);
+  syncUserFields(AppState.currentUserId, null, '#inTitle');
+  const now = new Date();
+  $('#inDate').val(now.toISOString().slice(0, 10));
+  $('#inTime').val(roundToHalfHour(now));
+  $('#inDutyType').val('協勤');
+}
+
 async function submitCheckIn() {
   try {
     const payload = {
-      userId: AppState.currentUserId,
-      workContent: $('#checkInWorkContent').val().trim(),
-      signUrl: $('#checkInSignUrl').val().trim(),
+      userId: $('#inName').val(),
+      dutyType: $('#inDutyType').val(),
+      checkInDate: $('#inDate').val(),
+      checkInTime: $('#inTime').val(),
       gpsLat: AppState.gps.lat,
       gpsLng: AppState.gps.lng
     };
@@ -201,10 +264,39 @@ async function submitCheckIn() {
   }
 }
 
+/* =========================
+ * 簽退
+ * ========================= */
+function fillCheckOutModal() {
+  populateUserOptions('#outName', AppState.currentUserId);
+  syncUserFields(AppState.currentUserId, null, '#outTitle');
+  const now = new Date();
+  $('#outDate').val(now.toISOString().slice(0, 10));
+  $('#outTime').val(roundToHalfHour(now));
+  $('#outDutyType').val('協勤');
+  $('#outServiceType').val('待命協勤');
+  $('#outWorkContent').val('');
+  $('#outSignUrl').val('');
+}
+
 async function submitCheckOut() {
   try {
+    const dutyType = $('#outDutyType').val();
+    const serviceType = $('#outServiceType').val();
+    const workContent = $('#outWorkContent').val().trim();
+
+    if ((serviceType === '出勤' || dutyType === '公差勤務') && !workContent) {
+      return showStatus('warning', '出勤或公差勤務時，工作內容必填。');
+    }
+
     const payload = {
-      userId: AppState.currentUserId,
+      userId: $('#outName').val(),
+      dutyType,
+      serviceType,
+      checkOutDate: $('#outDate').val(),
+      checkOutTime: $('#outTime').val(),
+      workContent,
+      signUrl: $('#outSignUrl').val().trim(),
       gpsLat: AppState.gps.lat,
       gpsLng: AppState.gps.lng
     };
@@ -225,15 +317,50 @@ async function submitCheckOut() {
   }
 }
 
-function onSwitchUser() {
-  AppState.currentUserId = AppState.currentUserId === 'A001' ? 'A002' : 'A001';
-  showStatus('info', `已切換人員：${AppState.currentUserId}`);
-  loadData();
+/* =========================
+ * 共用工具
+ * ========================= */
+function populateUserOptions(target, selectedId) {
+  const html = AppState.users.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`).join('');
+  $(target).html(html).val(selectedId || AppState.users[0]?.id || '');
 }
 
-/* =========================
- * UI 工具
- * ========================= */
+function syncUserFields(userId, unitTarget, titleTarget) {
+  const user = AppState.users.find(u => u.id === userId);
+  if (!user) return;
+  if (unitTarget) $(unitTarget).val(user.unit || '');
+  if (titleTarget) $(titleTarget).val(user.title || '');
+}
+
+function buildHalfHourOptions(selector) {
+  const options = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      options.push(`<option value="${t}:00">${t}</option>`);
+    }
+  }
+  $(selector).html(options.join(''));
+}
+
+function roundToHalfHour(date) {
+  const d = new Date(date);
+  const m = d.getMinutes();
+  if (m < 15) d.setMinutes(0, 0, 0);
+  else if (m < 45) d.setMinutes(30, 0, 0);
+  else { d.setHours(d.getHours() + 1); d.setMinutes(0, 0, 0); }
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
+}
+
+function getCurrentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatTime(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+}
+
 function showStatus(type, message) {
   const html = `<div class="alert alert-${type} mb-0" role="alert">${escapeHtml(message)}</div>`;
   $('#statusArea').removeClass('d-none').html(html);
