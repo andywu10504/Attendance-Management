@@ -12,16 +12,17 @@ const staffData = [
 const TARGET_MONTH_HOURS = 12;
 
 // ===== 定位設定 =====
-// 總開關：是否啟用定位功能
 const ENABLE_LOCATION_CHECK = true;
 
-// 簽到/簽退是否需要檢查定位
+// 簽到/簽退送出時是否檢查定位
 const REQUIRE_LOCATION_FOR_ATTENDANCE = true;
+
+// 定位失敗 / 不在範圍時，是否停用簽到與簽退按鈕
+const DISABLE_ATTENDANCE_BUTTONS_WHEN_LOCATION_FAILED = true;
 
 // 只有這些協勤種類需要定位
 const LOCATION_REQUIRED_DUTY_TYPES = ["協勤", "常年訓練"];
 
-// 允許距離，單位：公尺
 const LOCATION_RADIUS_METERS = 200;
 
 const LOCATIONS = [
@@ -53,10 +54,11 @@ $(function () {
     initSwitchModal();
     initEvents();
     initSignatureCanvas();
-    initLocation();
     restoreCurrentUser();
     updateCheckOutVisibleBlocks();
     checkUserAndForceSelect();
+    updateAttendanceButtonsByLocation();
+    initLocation();
 });
 
 // ===== 時鐘 =====
@@ -269,16 +271,10 @@ function initEvents() {
     });
 
     $("#btnRelocate").on("click", getLocation);
-
     $("#btnClearSignature").on("click", clearSignature);
 
-    $("#btnSubmitCheckIn").on("click", function () {
-        submitCheckIn();
-    });
-
-    $("#btnSubmitCheckOut").on("click", function () {
-        submitCheckOut();
-    });
+    $("#btnSubmitCheckIn").on("click", submitCheckIn);
+    $("#btnSubmitCheckOut").on("click", submitCheckOut);
 
     $("#checkOutModal").on("shown.bs.modal", function () {
         $("#checkOutStatus").val("出勤");
@@ -371,6 +367,31 @@ function showStatus(message) {
     $("#statusBox").removeClass("d-none");
 }
 
+// ===== 簽到 / 簽退按鈕定位狀態控制 =====
+function updateAttendanceButtonsByLocation() {
+    if (!DISABLE_ATTENDANCE_BUTTONS_WHEN_LOCATION_FAILED) {
+        setAttendanceButtonsEnabled(true);
+        return;
+    }
+
+    if (!ENABLE_LOCATION_CHECK) {
+        setAttendanceButtonsEnabled(true);
+        return;
+    }
+
+    if (!currentLocationResult.checked || !currentLocationResult.passed) {
+        setAttendanceButtonsEnabled(false);
+        return;
+    }
+
+    setAttendanceButtonsEnabled(true);
+}
+
+function setAttendanceButtonsEnabled(enabled) {
+    $('[data-bs-target="#checkInModal"]').prop("disabled", !enabled);
+    $('[data-bs-target="#checkOutModal"]').prop("disabled", !enabled);
+}
+
 // ===== 定位 =====
 function initLocation() {
     getLocation();
@@ -387,6 +408,7 @@ function getLocation() {
         };
 
         $("#locationStatus").text("定位已關閉");
+        updateAttendanceButtonsByLocation();
         return;
     }
 
@@ -400,10 +422,20 @@ function getLocation() {
         };
 
         $("#locationStatus").text("瀏覽器不支援定位");
+        updateAttendanceButtonsByLocation();
         return;
     }
 
+    currentLocationResult = {
+        checked: false,
+        passed: false,
+        nearestName: "",
+        distance: null,
+        message: "定位中..."
+    };
+
     $("#locationStatus").text("定位中...");
+    updateAttendanceButtonsByLocation();
 
     navigator.geolocation.getCurrentPosition(
         function (position) {
@@ -424,6 +456,7 @@ function getLocation() {
             };
 
             $("#locationStatus").text(currentLocationResult.message);
+            updateAttendanceButtonsByLocation();
         },
         function () {
             currentLocationResult = {
@@ -435,6 +468,7 @@ function getLocation() {
             };
 
             $("#locationStatus").text("定位失敗");
+            updateAttendanceButtonsByLocation();
         },
         {
             enableHighAccuracy: true,
