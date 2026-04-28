@@ -1,19 +1,28 @@
+// ===== 基本設定 =====
 const STORAGE_KEY_CURRENT_USER = "attendance_current_user";
+const TARGET_MONTH_HOURS = 12;
 
+// ===== 定位設定 =====
+const ENABLE_LOCATION_CHECK = true;
+const LOCATION_RADIUS_METERS = 200;
+
+const LOCATIONS = [
+    { name: "新興分隊", lat: 22.630672158276443, lng: 120.31128327916338 },
+    { name: "日月光 K11", lat: 22.72216361392138, lng: 120.30467815407455 },
+    { name: "吉林街", lat: 22.644404291421328, lng: 120.30641955636828 }
+];
+
+// ===== 範例人員 =====
 const staffData = [
     { unit: "新興分隊", title: "隊員", name: "王小明" },
     { unit: "新興分隊", title: "隊員", name: "陳小華" },
-    { unit: "新興分隊", title: "小隊長", name: "林志強" },
-    { unit: "新興分隊", title: "副小隊長", name: "黃雅婷" },
-    { unit: "日月光 K11", title: "隊員", name: "李志偉" },
-    { unit: "吉林街", title: "幹部", name: "張淑芬" }
+    { unit: "新興分隊", title: "小隊長", name: "林志強" }
 ];
-
-const TARGET_MONTH_HOURS = 12;
-const ENABLE_LOCATION_CHECK = true;
 
 let currentUser = null;
 
+
+// ===== 初始化 =====
 $(function () {
     initClock();
     initDates();
@@ -25,6 +34,7 @@ $(function () {
     restoreCurrentUser();
     updateCheckOutVisibleBlocks();
 });
+
 
 // ===== 時鐘 =====
 function initClock() {
@@ -47,26 +57,19 @@ function formatTime(date) {
 }
 
 function formatDateSlash(date) {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}/${mm}/${dd}`;
+    return `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,"0")}/${String(date.getDate()).padStart(2,"0")}`;
 }
 
 function formatDateDash(date) {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 }
 
 function formatMonth(date) {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    return `${yyyy}-${mm}`;
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
 }
 
-// ===== 日期 =====
+
+// ===== 日期初始化 =====
 function initDates() {
     const now = new Date();
 
@@ -75,30 +78,29 @@ function initDates() {
     $("#searchMonth").val(formatMonth(now));
 }
 
+
 // ===== 人員 =====
 function initStaffOptions() {
     const selects = $("#switchName, #checkInName, #checkOutName");
 
-    selects.empty();
-    selects.append(`<option value="">請選擇姓名</option>`);
+    selects.empty().append(`<option value="">請選擇姓名</option>`);
 
-    staffData.forEach(user => {
-        selects.append(`<option value="${user.name}">${user.name}</option>`);
+    staffData.forEach(u => {
+        selects.append(`<option value="${u.name}">${u.name}</option>`);
     });
 }
 
 function restoreCurrentUser() {
-    const savedName = localStorage.getItem(STORAGE_KEY_CURRENT_USER);
+    const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER);
 
-    if (!savedName) {
+    if (!saved) {
         renderDefaultNavbar();
         return;
     }
 
-    const user = staffData.find(x => x.name === savedName);
+    const user = staffData.find(x => x.name === saved);
 
     if (!user) {
-        localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
         renderDefaultNavbar();
         return;
     }
@@ -106,7 +108,7 @@ function restoreCurrentUser() {
     applyCurrentUser(user, false);
 }
 
-function applyCurrentUser(user, shouldSave) {
+function applyCurrentUser(user, save) {
     currentUser = user;
 
     if (!user) {
@@ -126,7 +128,7 @@ function applyCurrentUser(user, shouldSave) {
 
     renderNavbarUser(user);
 
-    if (shouldSave) {
+    if (save) {
         localStorage.setItem(STORAGE_KEY_CURRENT_USER, user.name);
     }
 }
@@ -158,83 +160,56 @@ function renderNavbarUser(user) {
     `);
 }
 
-// ===== 時間選單 =====
+
+// ===== 時間選單（00 / 30）=====
 function initTimeOptions() {
     $(".time-select").each(function () {
         const select = $(this);
         select.empty();
 
         for (let h = 0; h < 24; h++) {
-            for (const m of [0, 30]) {
+            for (let m of [0, 30]) {
                 const hh = String(h).padStart(2, "0");
                 const mm = String(m).padStart(2, "0");
                 select.append(`<option value="${hh}:${mm}">${hh}:${mm}</option>`);
             }
         }
     });
-
-    const now = new Date();
-    const minute = now.getMinutes() < 30 ? "00" : "30";
-    const defaultTime = `${String(now.getHours()).padStart(2, "0")}:${minute}`;
-
-    $("#checkInTime").val(defaultTime);
-    $("#checkOutTime").val(defaultTime);
 }
+
 
 // ===== 事件 =====
 function initEvents() {
-    $("#switchName").on("change", function () {
-        const name = $(this).val();
-        const user = staffData.find(x => x.name === name);
 
-        if (!user) {
-            $("#switchUnit").val("");
-            $("#switchTitle").val("");
-            return;
-        }
+    $("#switchName").on("change", function () {
+        const user = staffData.find(x => x.name === $(this).val());
+        if (!user) return;
 
         $("#switchUnit").val(user.unit);
         $("#switchTitle").val(user.title);
     });
 
     $("#btnApplyUser").on("click", function () {
-        const name = $("#switchName").val();
-        const user = staffData.find(x => x.name === name);
-
-        if (!user) {
-            showStatus("請先選擇姓名");
-            return;
-        }
+        const user = staffData.find(x => x.name === $("#switchName").val());
+        if (!user) return;
 
         applyCurrentUser(user, true);
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById("switchModal"));
-        modal.hide();
+        bootstrap.Modal.getInstance(document.getElementById("switchModal")).hide();
     });
 
-    $("#checkInName, #checkOutName").on("change", function () {
-        const name = $(this).val();
-        const user = staffData.find(x => x.name === name);
-
-        if (user) {
-            applyCurrentUser(user, true);
-        }
-    });
-
-    $("#checkOutDutyType, #checkOutStatus").on("change", function () {
-        updateCheckOutVisibleBlocks();
-    });
+    $("#checkOutDutyType, #checkOutStatus").on("change", updateCheckOutVisibleBlocks);
 
     $("#btnRelocate").on("click", getLocation);
+
     $("#btnClearSignature").on("click", clearSignature);
 
-    $("#checkOutModal").on("shown.bs.modal", function () {
-        resizeSignatureCanvas();
-    });
+    $("#checkOutModal").on("shown.bs.modal", resizeSignatureCanvas);
 }
 
-// ===== 簽退欄位顯示 =====
+
+// ===== 簽退顯示邏輯 =====
 function updateCheckOutVisibleBlocks() {
+
     const dutyType = $("#checkOutDutyType").val();
     const serviceType = $("#checkOutStatus").val();
 
@@ -244,23 +219,13 @@ function updateCheckOutVisibleBlocks() {
         $("#checkOutStatusBlock").hide();
     }
 
-    const shouldShowWorkContent =
+    const showWork =
         (dutyType === "協勤" && serviceType === "出勤") ||
         dutyType === "公差勤務";
 
-    if (shouldShowWorkContent) {
-        $("#workContentBlock").show();
-    } else {
-        $("#workContentBlock").hide();
-        $("#workContent").val("");
-    }
+    showWork ? $("#workContentBlock").show() : $("#workContentBlock").hide();
 }
 
-// ===== 狀態 =====
-function showStatus(message) {
-    $("#statusText").text(message);
-    $("#statusBox").removeClass("d-none");
-}
 
 // ===== 定位 =====
 function initLocation() {
@@ -273,106 +238,92 @@ function getLocation() {
         return;
     }
 
-    if (!navigator.geolocation) {
-        $("#locationStatus").text("瀏覽器不支援定位");
-        return;
-    }
-
-    $("#locationStatus").text("定位中...");
-
     navigator.geolocation.getCurrentPosition(
-        function () {
-            $("#locationStatus").text("定位成功");
+        function (pos) {
+            const nearest = findNearestLocation(pos.coords.latitude, pos.coords.longitude);
+
+            if (nearest.distance <= LOCATION_RADIUS_METERS) {
+                $("#locationStatus").text(`✔ ${nearest.name} (${nearest.distance.toFixed(0)}m)`);
+            } else {
+                $("#locationStatus").text(`✖ 不在範圍 (${nearest.name} ${nearest.distance.toFixed(0)}m)`);
+            }
         },
-        function () {
-            $("#locationStatus").text("定位失敗");
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        }
+        () => $("#locationStatus").text("定位失敗"),
+        { enableHighAccuracy: true }
     );
 }
 
-// ===== 簽名 Canvas =====
-let signatureCanvas = null;
-let signatureCtx = null;
-let isDrawing = false;
+function findNearestLocation(lat, lng) {
+    let nearest = null;
+
+    LOCATIONS.forEach(l => {
+        const d = getDistance(lat, lng, l.lat, l.lng);
+
+        if (!nearest || d < nearest.distance) {
+            nearest = { name: l.name, distance: d };
+        }
+    });
+
+    return nearest;
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dLat/2)**2 +
+        Math.cos(lat1*Math.PI/180) *
+        Math.cos(lat2*Math.PI/180) *
+        Math.sin(dLon/2)**2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+
+// ===== 簽名 =====
+let canvas, ctx, drawing = false;
 
 function initSignatureCanvas() {
-    signatureCanvas = document.getElementById("signatureCanvas");
-    if (!signatureCanvas) return;
+    canvas = document.getElementById("signatureCanvas");
+    if (!canvas) return;
 
-    signatureCanvas.addEventListener("pointerdown", startDraw);
-    signatureCanvas.addEventListener("pointermove", drawSignature);
-    signatureCanvas.addEventListener("pointerup", endDraw);
-    signatureCanvas.addEventListener("pointerleave", endDraw);
-    signatureCanvas.addEventListener("pointercancel", endDraw);
+    ctx = canvas.getContext("2d");
 
-    window.addEventListener("resize", resizeSignatureCanvas);
+    canvas.addEventListener("pointerdown", e => {
+        drawing = true;
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    });
+
+    canvas.addEventListener("pointermove", e => {
+        if (!drawing) return;
+        const p = getPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    });
+
+    canvas.addEventListener("pointerup", () => drawing = false);
 }
 
 function resizeSignatureCanvas() {
-    if (!signatureCanvas) return;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = 120;
 
-    const rect = signatureCanvas.getBoundingClientRect();
-
-    if (!rect.width || rect.width <= 0) return;
-
-    signatureCanvas.width = rect.width;
-    signatureCanvas.height = 120;
-
-    signatureCtx = signatureCanvas.getContext("2d");
-    signatureCtx.lineWidth = 2;
-    signatureCtx.lineCap = "round";
-    signatureCtx.lineJoin = "round";
-    signatureCtx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
 }
 
-function getCanvasPosition(event) {
-    const rect = signatureCanvas.getBoundingClientRect();
-
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
     return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
     };
 }
 
-function startDraw(event) {
-    event.preventDefault();
-
-    if (!signatureCtx) {
-        resizeSignatureCanvas();
-    }
-
-    isDrawing = true;
-
-    const pos = getCanvasPosition(event);
-    signatureCtx.beginPath();
-    signatureCtx.moveTo(pos.x, pos.y);
-}
-
-function drawSignature(event) {
-    if (!isDrawing) return;
-
-    event.preventDefault();
-
-    const pos = getCanvasPosition(event);
-    signatureCtx.lineTo(pos.x, pos.y);
-    signatureCtx.stroke();
-}
-
-function endDraw(event) {
-    if (event) {
-        event.preventDefault();
-    }
-
-    isDrawing = false;
-}
-
 function clearSignature() {
-    if (!signatureCtx || !signatureCanvas) return;
-
-    signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
