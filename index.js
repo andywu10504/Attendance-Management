@@ -11,19 +11,15 @@ const staffData = [
 
 const TARGET_MONTH_HOURS = 12;
 
-// ===== 定位設定 =====
-const ENABLE_LOCATION_CHECK = true;
-
-// 簽到/簽退送出時是否檢查定位
-const REQUIRE_LOCATION_FOR_ATTENDANCE = true;
-
-// 定位失敗 / 不在範圍時，是否停用簽到與簽退按鈕
-const DISABLE_ATTENDANCE_BUTTONS_WHEN_LOCATION_FAILED = true;
-
-// 只有這些協勤種類需要定位
-const LOCATION_REQUIRED_DUTY_TYPES = ["協勤", "常年訓練"];
-
+/*
+    定位控制：
+    true  = 協勤、常年訓練需要定位通過，才能簽到/簽退
+    false = 不限制定位
+*/
+const REQUIRE_LOCATION_FOR_DUTY = true;
 const LOCATION_RADIUS_METERS = 200;
+
+const LOCATION_REQUIRED_DUTY_TYPES = ["協勤", "常年訓練"];
 
 const LOCATIONS = [
     { name: "新興分隊", lat: 22.630672158276443, lng: 120.31128327916338 },
@@ -38,12 +34,11 @@ let signatureCanvas = null;
 let signatureCtx = null;
 let isDrawing = false;
 
-let currentLocationResult = {
+let locationState = {
     checked: false,
-    passed: false,
+    valid: false,
     nearestName: "",
-    distance: null,
-    message: "尚未定位"
+    distance: null
 };
 
 $(function () {
@@ -54,11 +49,11 @@ $(function () {
     initSwitchModal();
     initEvents();
     initSignatureCanvas();
+    initLocation();
     restoreCurrentUser();
     updateCheckOutVisibleBlocks();
+    updateActionButtonsByLocation();
     checkUserAndForceSelect();
-    updateAttendanceButtonsByLocation();
-    initLocation();
 });
 
 // ===== 時鐘 =====
@@ -266,76 +261,24 @@ function initEvents() {
         }
     });
 
-    $("#checkOutDutyType, #checkOutStatus").on("change", function () {
+    $("#checkInDutyType, #checkOutDutyType").on("change", function () {
+        updateActionButtonsByLocation();
+        updateCheckOutVisibleBlocks();
+    });
+
+    $("#checkOutStatus").on("change", function () {
         updateCheckOutVisibleBlocks();
     });
 
     $("#btnRelocate").on("click", getLocation);
-    $("#btnClearSignature").on("click", clearSignature);
 
-    $("#btnSubmitCheckIn").on("click", submitCheckIn);
-    $("#btnSubmitCheckOut").on("click", submitCheckOut);
+    $("#btnClearSignature").on("click", clearSignature);
 
     $("#checkOutModal").on("shown.bs.modal", function () {
         $("#checkOutStatus").val("出勤");
         updateCheckOutVisibleBlocks();
         resizeSignatureCanvas();
     });
-}
-
-// ===== 簽到 / 簽退送出 =====
-function submitCheckIn() {
-    const dutyType = $("#checkInDutyType").val();
-
-    if (!currentUser) {
-        showStatus("請先選擇人員");
-        switchModalInstance.show();
-        return;
-    }
-
-    if (!canSubmitByLocation(dutyType)) {
-        showStatus(`目前協勤種類「${dutyType}」需要定位通過後才能簽到`);
-        return;
-    }
-
-    showStatus("簽到資料檢查完成，後續可接 Google Sheet 寫入");
-}
-
-function submitCheckOut() {
-    const dutyType = $("#checkOutDutyType").val();
-
-    if (!currentUser) {
-        showStatus("請先選擇人員");
-        switchModalInstance.show();
-        return;
-    }
-
-    if (!canSubmitByLocation(dutyType)) {
-        showStatus(`目前協勤種類「${dutyType}」需要定位通過後才能簽退`);
-        return;
-    }
-
-    showStatus("簽退資料檢查完成，後續可接 Google Sheet 寫入");
-}
-
-function canSubmitByLocation(dutyType) {
-    if (!ENABLE_LOCATION_CHECK) {
-        return true;
-    }
-
-    if (!REQUIRE_LOCATION_FOR_ATTENDANCE) {
-        return true;
-    }
-
-    if (!isLocationRequiredDutyType(dutyType)) {
-        return true;
-    }
-
-    return currentLocationResult.checked && currentLocationResult.passed;
-}
-
-function isLocationRequiredDutyType(dutyType) {
-    return LOCATION_REQUIRED_DUTY_TYPES.includes(dutyType);
 }
 
 // ===== 簽退欄位顯示 =====
@@ -367,29 +310,35 @@ function showStatus(message) {
     $("#statusBox").removeClass("d-none");
 }
 
-// ===== 簽到 / 簽退按鈕定位狀態控制 =====
-function updateAttendanceButtonsByLocation() {
-    if (!DISABLE_ATTENDANCE_BUTTONS_WHEN_LOCATION_FAILED) {
-        setAttendanceButtonsEnabled(true);
+// ===== 定位控制按鈕 =====
+function updateActionButtonsByLocation() {
+    const checkInNeedLocation = isDutyTypeNeedLocation($("#checkInDutyType").val());
+    const checkOutNeedLocation = isDutyTypeNeedLocation($("#checkOutDutyType").val());
+
+    const shouldBlockCheckIn =
+        REQUIRE_LOCATION_FOR_DUTY &&
+        checkInNeedLocation &&
+        !locationState.valid;
+
+    const shouldBlockCheckOut =
+        REQUIRE_LOCATION_FOR_DUTY &&
+        checkOutNeedLocation &&
+        !locationState.valid;
+
+    $("[data-bs-target='#checkInModal']").prop("disabled", shouldBlockCheckIn);
+    $("[data-bs-target='#checkOutModal']").prop("disabled", shouldBlockCheckOut);
+
+    if (!REQUIRE_LOCATION_FOR_DUTY) {
         return;
     }
 
-    if (!ENABLE_LOCATION_CHECK) {
-        setAttendanceButtonsEnabled(true);
-        return;
+    if (shouldBlockCheckIn || shouldBlockCheckOut) {
+        showStatus("協勤與常年訓練需完成定位，且必須在允許範圍內，才能簽到或簽退。");
     }
-
-    if (!currentLocationResult.checked || !currentLocationResult.passed) {
-        setAttendanceButtonsEnabled(false);
-        return;
-    }
-
-    setAttendanceButtonsEnabled(true);
 }
 
-function setAttendanceButtonsEnabled(enabled) {
-    $('[data-bs-target="#checkInModal"]').prop("disabled", !enabled);
-    $('[data-bs-target="#checkOutModal"]').prop("disabled", !enabled);
+function isDutyTypeNeedLocation(dutyType) {
+    return LOCATION_REQUIRED_DUTY_TYPES.includes(dutyType);
 }
 
 // ===== 定位 =====
@@ -398,77 +347,73 @@ function initLocation() {
 }
 
 function getLocation() {
-    if (!ENABLE_LOCATION_CHECK) {
-        currentLocationResult = {
+    if (!REQUIRE_LOCATION_FOR_DUTY) {
+        locationState = {
             checked: true,
-            passed: true,
+            valid: true,
             nearestName: "",
-            distance: null,
-            message: "定位已關閉"
+            distance: null
         };
 
-        $("#locationStatus").text("定位已關閉");
-        updateAttendanceButtonsByLocation();
+        $("#locationStatus").text("定位限制已關閉");
+        updateActionButtonsByLocation();
         return;
     }
 
     if (!navigator.geolocation) {
-        currentLocationResult = {
+        locationState = {
             checked: true,
-            passed: false,
+            valid: false,
             nearestName: "",
-            distance: null,
-            message: "瀏覽器不支援定位"
+            distance: null
         };
 
         $("#locationStatus").text("瀏覽器不支援定位");
-        updateAttendanceButtonsByLocation();
+        updateActionButtonsByLocation();
         return;
     }
 
-    currentLocationResult = {
+    locationState = {
         checked: false,
-        passed: false,
+        valid: false,
         nearestName: "",
-        distance: null,
-        message: "定位中..."
+        distance: null
     };
 
     $("#locationStatus").text("定位中...");
-    updateAttendanceButtonsByLocation();
+    updateActionButtonsByLocation();
 
     navigator.geolocation.getCurrentPosition(
         function (position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
-
             const nearest = findNearestLocation(userLat, userLng);
-            const passed = nearest.distance <= LOCATION_RADIUS_METERS;
 
-            currentLocationResult = {
+            locationState = {
                 checked: true,
-                passed: passed,
+                valid: nearest.distance <= LOCATION_RADIUS_METERS,
                 nearestName: nearest.name,
-                distance: nearest.distance,
-                message: passed
-                    ? `定位成功：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`
-                    : `不在允許範圍內，最近地點：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`
+                distance: nearest.distance
             };
 
-            $("#locationStatus").text(currentLocationResult.message);
-            updateAttendanceButtonsByLocation();
+            if (locationState.valid) {
+                $("#locationStatus").text(`定位成功：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`);
+            } else {
+                $("#locationStatus").text(`不在允許範圍內，最近地點：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`);
+            }
+
+            updateActionButtonsByLocation();
         },
         function () {
-            currentLocationResult = {
+            locationState = {
                 checked: true,
-                passed: false,
+                valid: false,
                 nearestName: "",
-                distance: null,
-                message: "定位失敗"
+                distance: null
             };
 
             $("#locationStatus").text("定位失敗");
-            updateAttendanceButtonsByLocation();
+            updateActionButtonsByLocation();
         },
         {
             enableHighAccuracy: true,
