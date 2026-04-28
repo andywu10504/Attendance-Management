@@ -255,6 +255,11 @@ function initEvents() {
     $("#btnClearSignature").on("click", clearSignature);
 
     $("#checkOutModal").on("shown.bs.modal", function () {
+        // 預設「出勤」
+        $("#checkOutStatus").val("出勤");
+        // 同步更新顯示邏輯
+        updateCheckOutVisibleBlocks();
+        // 簽名初始化
         resizeSignatureCanvas();
     });
 }
