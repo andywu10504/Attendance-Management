@@ -1,175 +1,344 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>新興救護義消出勤管理系統</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <style>
-    body { background:#f8f9fa; }
-    .section-box { border:1px solid #dee2e6; border-radius:.5rem; background:#fff; }
-    .clock-panel { background:#000; color:#fff; border-radius:.5rem; }
-    .clock-time { font-size: 3rem; font-weight: 700; line-height: 1; }
-    .clock-date { color:#d1d5db; font-size: .95rem; }
-    .action-btn { min-height:72px; font-size:1.25rem; }
-    .table-wrap { max-height: 360px; overflow: auto; }
-    .loading-mask {
-      position: fixed; inset: 0; background: rgba(255,255,255,.7);
-      display: none; align-items: center; justify-content: center; z-index: 1060;
-    }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>新興救護義消出勤系統</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
 </head>
+
 <body>
-  <div class="loading-mask" id="loadingMask">
-    <div class="text-center">
-      <div class="spinner-border text-primary" role="status"></div>
-      <div class="mt-2 fw-semibold">資料讀取中...</div>
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <span class="navbar-brand fw-bold">
+            <i class="fa-solid fa-truck-medical text-danger"></i>
+            新興救護義消出勤系統
+        </span>
+
+        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap" id="navbarUserInfo">
+            <span><i class="fa-solid fa-building"></i></span>
+            <span>-</span>
+            <span><i class="fa-solid fa-user-tie"></i></span>
+            <span>-</span>
+            <span><i class="fa-solid fa-user"></i></span>
+            <span>-</span>
+
+            <button class="btn btn-outline-primary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#switchModal">
+                <i class="fa-solid fa-right-left"></i> 切換
+            </button>
+        </div>
     </div>
-  </div>
+</nav>
 
-  <div class="container-fluid p-0">
-    <nav class="navbar bg-body-tertiary section-box rounded-0 border-start-0 border-end-0 border-top-0">
-      <div class="container-fluid d-flex justify-content-between align-items-center">
-        <div class="navbar-brand mb-0 fw-bold"><i class="fa-solid fa-truck-medical me-2 text-danger"></i>新興救護義消出勤管理系統</div>
-        <div class="d-flex align-items-center gap-3">
-          <span><i class="fa-solid fa-building me-1"></i><span id="unitText">-</span></span>
-          <span><i class="fa-solid fa-user-tie me-1"></i><span id="titleText">-</span></span>
-          <span><i class="fa-solid fa-user me-1"></i><span id="nameText">-</span></span>
-          <button id="switchUserBtn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-repeat me-1"></i>切換</button>
+<div class="container mt-3">
+
+    <div class="card-box text-center clock-box">
+        <div id="timeText" class="time-text">00:00:00</div>
+        <div id="dateText" class="date-text">YYYY/MM/DD</div>
+    </div>
+
+    <div class="card-box d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fa-solid fa-location-dot"></i>
+            <span id="locationStatus">定位中...</span>
         </div>
-      </div>
-    </nav>
+        <button class="btn btn-sm btn-outline-secondary" id="btnRelocate">
+            <i class="fa-solid fa-location-crosshairs"></i> 重新定位
+        </button>
+    </div>
 
-    <div class="container py-3">
-      <div class="row g-3">
-        <div class="col-12">
-          <section class="section-box p-3 text-center clock-panel">
-            <div class="clock-time" id="clockTime">--:--:--</div>
-            <div class="clock-date" id="clockDate">----</div>
-          </section>
-        </div>
+    <div id="statusBox" class="card-box d-none">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="statusText"></span>
+    </div>
 
-        <div class="col-12">
-          <section class="section-box p-3 d-flex justify-content-between align-items-center">
-            <div><i class="fa-solid fa-location-dot me-2"></i>定位狀態：<span id="gpsStatus" class="fw-semibold">尚未定位</span></div>
-            <button id="checkGpsBtn" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-rotate-right me-1"></i>重新定位</button>
-          </section>
-        </div>
+<div class="card-box d-grid gap-3 action-box">
 
-        <div class="col-12">
-          <section id="statusArea" class="section-box p-3 d-none"></section>
-        </div>
+    <button class="btn btn-success btn-lg fw-bold py-3" data-bs-toggle="modal" data-bs-target="#checkInModal">
+        <i class="fa-solid fa-right-to-bracket me-2"></i>
+        簽到
+    </button>
 
-        <div class="col-12">
-          <section class="section-box p-3 d-grid gap-2">
-            <button id="checkInBtn" class="btn btn-success action-btn"><i class="fa-solid fa-right-to-bracket me-2"></i>簽到</button>
-            <button id="checkOutBtn" class="btn btn-danger action-btn"><i class="fa-solid fa-right-from-bracket me-2"></i>簽退</button>
-          </section>
-        </div>
+    <button class="btn btn-danger btn-lg fw-bold py-3" data-bs-toggle="modal" data-bs-target="#checkOutModal">
+        <i class="fa-solid fa-right-from-bracket me-2"></i>
+        簽退
+    </button>
+</div>
 
-        <div class="col-12">
-          <section class="section-box p-3 h-100">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="border rounded p-3 h-100">
-                  <div class="text-muted"><i class="fa-solid fa-hourglass-half me-1"></i>本月協勤時數</div>
-                  <div class="fs-3 fw-bold" id="monthHours">0.00</div>
-                  <div class="progress mt-2" role="progressbar" aria-label="本月目標 12 小時" aria-valuemin="0" aria-valuemax="12">
-                    <div id="monthProgress" class="progress-bar" style="width: 0%">0%</div>
-                  </div>
-                  <small class="text-muted">每月目標 12 小時</small>
+    <div class="row hours-row">
+        <div class="col-12 col-md-6">
+            <div class="card-box text-center h-100">
+                <div class="fw-bold">
+                    <i class="fa-solid fa-chart-line"></i>
+                    總協勤時數
                 </div>
-              </div>
-              <div class="col-md-6">
-                <div class="border rounded p-3 h-100">
-                  <div class="text-muted"><i class="fa-solid fa-clock-rotate-left me-1"></i>總協勤時數</div>
-                  <div class="fs-3 fw-bold" id="totalHours">0.00</div>
+                <div class="fs-4">
+                    <span id="totalDutyHours">0.0</span> 小時
                 </div>
-              </div>
             </div>
-          </section>
         </div>
 
-        <div class="col-12">
-          <section class="section-box p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <h5 class="mb-0 fw-bold"><i class="fa-solid fa-table-list me-1"></i>出勤紀錄</h5>
-              <input id="recordMonth" type="month" class="form-control form-control-sm" style="max-width: 180px;">
+        <div class="col-12 col-md-6">
+            <div class="card-box text-center h-100">
+                <div class="fw-bold">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    本月協勤時數
+                </div>
+                <div class="fs-4 mb-2">
+                    <span id="monthDutyHours">0.0</span> 小時
+                </div>
+
+                <div class="progress">
+                    <div id="monthProgressBar" class="progress-bar" style="width: 0%;"></div>
+                </div>
+
+                <div class="small mt-1">
+                    <span id="monthProgressText">0.0小時 / 12小時</span>
+                </div>
             </div>
-            <div class="table-wrap">
-              <table class="table table-striped table-bordered align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>勤務類別</th>
-                    <th>簽到日期</th>
-                    <th>簽到時間</th>
-                    <th>簽退日期</th>
-                    <th>簽退時間</th>
-                    <th>時數(小時)</th>
-                  </tr>
+        </div>
+    </div>
+
+    <div class="card-box">
+        <div class="d-flex justify-content-between align-items-center flex-nowrap gap-2">
+            <h5 class="mb-0">
+                <i class="fa-solid fa-clipboard-list"></i>
+                出勤紀錄
+            </h5>
+
+            <input type="month" id="searchMonth" class="form-control month-input">
+        </div>
+
+        <div class="table-responsive mt-2">
+            <table class="table table-bordered text-center align-middle">
+                <thead>
+                    <tr>
+                        <th>協勤種類</th>
+                        <th>簽到日期</th>
+                        <th>簽到時間</th>
+                        <th>簽退日期</th>
+                        <th>簽退時間</th>
+                        <th>時數(小時)</th>
+                    </tr>
                 </thead>
-                <tbody id="recordTableBody"></tbody>
-              </table>
+                <tbody id="recordTableBody">
+                    <tr>
+                        <td colspan="6" class="text-muted">尚無資料</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- 切換 Modal -->
+<div class="modal fade" id="switchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-right-left"></i>
+                    切換人員
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="modal fade" id="switchUserModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-body">
+                <label class="form-label">
+                    <i class="fa-solid fa-building"></i> 單位
+                </label>
+                <input type="text" id="switchUnit" class="form-control mb-2 bg-light" value="" disabled>
+
+                <label class="form-label">
+                    <i class="fa-solid fa-user-tie"></i> 職稱
+                </label>
+                <input type="text" id="switchTitle" class="form-control mb-2 bg-light" value="" disabled>
+
+                <label class="form-label">
+                    <i class="fa-solid fa-user"></i> 姓名
+                </label>
+                <select id="switchName" class="form-select"></select>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" id="btnApplyUser">套用</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 簽到 Modal -->
+<div class="modal fade" id="checkInModal" tabindex="-1">
     <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-users-gear me-2"></i>切換人員</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-building me-1 text-secondary"></i>單位</label><input id="switchUnit" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="switchTitle" class="form-control" readonly></div>
-          <div><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="switchName" class="form-select"></select></div>
-        </div>
-        <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmSwitchBtn" class="btn btn-primary">確認切換</button></div>
-      </div>
-    </div>
-  </div>
+        <div class="modal-content">
 
-  <div class="modal fade" id="checkInModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    簽到
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <label class="form-label">
+                    <i class="fa-solid fa-list-check"></i> 協勤種類
+                </label>
+                <select id="checkInDutyType" class="form-select mb-2">
+                    <option value="協勤">協勤</option>
+                    <option value="常年訓練">常年訓練</option>
+                    <option value="公差勤務">公差勤務</option>
+                </select>
+
+                <div class="row">
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-user-tie"></i> 職稱
+                        </label>
+                        <input type="text" id="checkInTitle" class="form-control bg-light" value="" disabled>
+                    </div>
+
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-user"></i> 姓名
+                        </label>
+                        <select id="checkInName" class="form-select staff-select"></select>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-calendar-day"></i> 簽到日期
+                        </label>
+                        <input type="date" id="checkInDate" class="form-control">
+                    </div>
+
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-clock"></i> 簽到時間
+                        </label>
+                        <select id="checkInTime" class="form-select time-select"></select>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" id="btnSubmitCheckIn">送出</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 簽退 Modal -->
+<div class="modal fade" id="checkOutModal" tabindex="-1">
     <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-right-to-bracket me-2 text-success"></i>簽到</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-list-check me-1"></i>協勤種類</label><select id="inDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="inTitle" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="inName" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-calendar-day me-1"></i>簽到日期</label><input id="inDate" type="date" class="form-control"></div>
-          <div><label class="form-label"><i class="fa-regular fa-clock me-1"></i>簽到時間(半小時)</label><select id="inTime" class="form-select"></select></div>
-        </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmCheckInBtn" type="button" class="btn btn-success">確認簽到</button></div>
-      </div>
-    </div>
-  </div>
+        <div class="modal-content">
 
-  <div class="modal fade" id="checkOutModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title"><i class="fa-solid fa-right-from-bracket me-2 text-danger"></i>簽退</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-list-check me-1"></i>協勤種類</label><select id="outDutyType" class="form-select"><option>協勤</option><option>常年訓練</option><option>公差勤務</option></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-briefcase me-1"></i>服勤類別</label><select id="outServiceType" class="form-select"><option>待命協勤</option><option>出勤</option></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user-tie me-1 text-secondary"></i>職稱</label><input id="outTitle" class="form-control" readonly></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-user me-1"></i>姓名</label><select id="outName" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-calendar-day me-1"></i>簽退日期</label><input id="outDate" type="date" class="form-control"></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-regular fa-clock me-1"></i>簽退時間(半小時)</label><select id="outTime" class="form-select"></select></div>
-          <div class="mb-2"><label class="form-label"><i class="fa-solid fa-pen-to-square me-1"></i>工作內容(出勤與公差勤務需填寫)</label><textarea id="outWorkContent" class="form-control" rows="2"></textarea></div>
-          <div><label class="form-label"><i class="fa-solid fa-signature me-1"></i>簽名(Drive URL)</label><input id="outSignUrl" type="url" class="form-control"></div>
-        </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button id="confirmCheckOutBtn" type="button" class="btn btn-danger">確認簽退</button></div>
-      </div>
-    </div>
-  </div>
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    簽退
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="config.js"></script>
-  <script src="index.js"></script>
+            <div class="modal-body">
+
+                <label class="form-label">
+                    <i class="fa-solid fa-list-check"></i> 協勤種類
+                </label>
+                <select id="checkOutDutyType" class="form-select mb-2">
+                    <option value="協勤">協勤</option>
+                    <option value="常年訓練">常年訓練</option>
+                    <option value="公差勤務">公差勤務</option>
+                </select>
+
+                <div id="checkOutStatusBlock">
+                    <label class="form-label">
+                        <i class="fa-solid fa-clipboard-check"></i> 服勤類別
+                    </label>
+                    <select id="checkOutStatus" class="form-select mb-2">
+                        <option value="待命協勤">待命協勤</option>
+                        <option value="出勤">出勤</option>
+                    </select>
+                </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-user-tie"></i> 職稱
+                        </label>
+                        <input type="text" id="checkOutTitle" class="form-control bg-light" value="" disabled>
+                    </div>
+
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-user"></i> 姓名
+                        </label>
+                        <select id="checkOutName" class="form-select staff-select"></select>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-calendar-day"></i> 簽退日期
+                        </label>
+                        <input type="date" id="checkOutDate" class="form-control">
+                    </div>
+
+                    <div class="col-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-clock"></i> 簽退時間
+                        </label>
+                        <select id="checkOutTime" class="form-select time-select"></select>
+                    </div>
+                </div>
+
+                <div id="workContentBlock">
+                    <label class="form-label mt-2">
+                        <i class="fa-solid fa-pen-to-square"></i> 工作內容
+                    </label>
+                    <textarea id="workContent" class="form-control" rows="3"></textarea>
+                </div>
+
+                <label class="form-label mt-2">
+                    <i class="fa-solid fa-signature"></i> 簽名
+                </label>
+                <canvas id="signatureCanvas" class="border w-100 signature-canvas" height="120"></canvas>
+
+                <button type="button" id="btnClearSignature" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="fa-solid fa-eraser"></i>
+                    清除簽名
+                </button>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" id="btnSubmitCheckOut">送出</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="app.js"></script>
+
 </body>
 </html>
