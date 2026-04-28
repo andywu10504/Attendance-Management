@@ -11,7 +11,17 @@ const staffData = [
 
 const TARGET_MONTH_HOURS = 12;
 
+// ===== 定位設定 =====
+// 總開關：是否啟用定位功能
 const ENABLE_LOCATION_CHECK = true;
+
+// 簽到/簽退是否需要檢查定位
+const REQUIRE_LOCATION_FOR_ATTENDANCE = true;
+
+// 只有這些協勤種類需要定位
+const LOCATION_REQUIRED_DUTY_TYPES = ["協勤", "常年訓練"];
+
+// 允許距離，單位：公尺
 const LOCATION_RADIUS_METERS = 200;
 
 const LOCATIONS = [
@@ -26,6 +36,14 @@ let switchModalInstance = null;
 let signatureCanvas = null;
 let signatureCtx = null;
 let isDrawing = false;
+
+let currentLocationResult = {
+    checked: false,
+    passed: false,
+    nearestName: "",
+    distance: null,
+    message: "尚未定位"
+};
 
 $(function () {
     initClock();
@@ -254,14 +272,74 @@ function initEvents() {
 
     $("#btnClearSignature").on("click", clearSignature);
 
+    $("#btnSubmitCheckIn").on("click", function () {
+        submitCheckIn();
+    });
+
+    $("#btnSubmitCheckOut").on("click", function () {
+        submitCheckOut();
+    });
+
     $("#checkOutModal").on("shown.bs.modal", function () {
-        // 預設「出勤」
         $("#checkOutStatus").val("出勤");
-        // 同步更新顯示邏輯
         updateCheckOutVisibleBlocks();
-        // 簽名初始化
         resizeSignatureCanvas();
     });
+}
+
+// ===== 簽到 / 簽退送出 =====
+function submitCheckIn() {
+    const dutyType = $("#checkInDutyType").val();
+
+    if (!currentUser) {
+        showStatus("請先選擇人員");
+        switchModalInstance.show();
+        return;
+    }
+
+    if (!canSubmitByLocation(dutyType)) {
+        showStatus(`目前協勤種類「${dutyType}」需要定位通過後才能簽到`);
+        return;
+    }
+
+    showStatus("簽到資料檢查完成，後續可接 Google Sheet 寫入");
+}
+
+function submitCheckOut() {
+    const dutyType = $("#checkOutDutyType").val();
+
+    if (!currentUser) {
+        showStatus("請先選擇人員");
+        switchModalInstance.show();
+        return;
+    }
+
+    if (!canSubmitByLocation(dutyType)) {
+        showStatus(`目前協勤種類「${dutyType}」需要定位通過後才能簽退`);
+        return;
+    }
+
+    showStatus("簽退資料檢查完成，後續可接 Google Sheet 寫入");
+}
+
+function canSubmitByLocation(dutyType) {
+    if (!ENABLE_LOCATION_CHECK) {
+        return true;
+    }
+
+    if (!REQUIRE_LOCATION_FOR_ATTENDANCE) {
+        return true;
+    }
+
+    if (!isLocationRequiredDutyType(dutyType)) {
+        return true;
+    }
+
+    return currentLocationResult.checked && currentLocationResult.passed;
+}
+
+function isLocationRequiredDutyType(dutyType) {
+    return LOCATION_REQUIRED_DUTY_TYPES.includes(dutyType);
 }
 
 // ===== 簽退欄位顯示 =====
@@ -300,11 +378,27 @@ function initLocation() {
 
 function getLocation() {
     if (!ENABLE_LOCATION_CHECK) {
+        currentLocationResult = {
+            checked: true,
+            passed: true,
+            nearestName: "",
+            distance: null,
+            message: "定位已關閉"
+        };
+
         $("#locationStatus").text("定位已關閉");
         return;
     }
 
     if (!navigator.geolocation) {
+        currentLocationResult = {
+            checked: true,
+            passed: false,
+            nearestName: "",
+            distance: null,
+            message: "瀏覽器不支援定位"
+        };
+
         $("#locationStatus").text("瀏覽器不支援定位");
         return;
     }
@@ -317,14 +411,29 @@ function getLocation() {
             const userLng = position.coords.longitude;
 
             const nearest = findNearestLocation(userLat, userLng);
+            const passed = nearest.distance <= LOCATION_RADIUS_METERS;
 
-            if (nearest.distance <= LOCATION_RADIUS_METERS) {
-                $("#locationStatus").text(`定位成功：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`);
-            } else {
-                $("#locationStatus").text(`不在允許範圍內，最近地點：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`);
-            }
+            currentLocationResult = {
+                checked: true,
+                passed: passed,
+                nearestName: nearest.name,
+                distance: nearest.distance,
+                message: passed
+                    ? `定位成功：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`
+                    : `不在允許範圍內，最近地點：${nearest.name}，距離 ${nearest.distance.toFixed(0)} 公尺`
+            };
+
+            $("#locationStatus").text(currentLocationResult.message);
         },
         function () {
+            currentLocationResult = {
+                checked: true,
+                passed: false,
+                nearestName: "",
+                distance: null,
+                message: "定位失敗"
+            };
+
             $("#locationStatus").text("定位失敗");
         },
         {
