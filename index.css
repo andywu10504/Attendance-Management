@@ -1,0 +1,56 @@
+body {
+    background-color: #f5f6f8;
+}
+
+.card-box {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+.clock-box {
+    background: #000;
+    color: #fff;
+}
+
+.time-text {
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.date-text {
+    font-size: 14px;
+}
+
+.month-input {
+    width: 180px;
+    max-width: 180px;
+}
+
+.signature-canvas {
+    background-color: #fff;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.action-box {
+    margin-bottom: 22px;
+}
+
+.hours-row {
+    row-gap: 12px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 576px) {
+    .time-text {
+        font-size: 36px;
+    }
+
+    .month-input {
+        width: 150px;
+    }
+}
